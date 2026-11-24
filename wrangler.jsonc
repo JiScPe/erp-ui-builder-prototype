@@ -1,0 +1,15 @@
+{
+  "name": "erp-ui-builder-prototype",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-24",
+  "assets": {
+    "directory": "./public",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "build": {
+    "command": "npm run build:assets",
+    "watch_dir": "src"
+  }
+}

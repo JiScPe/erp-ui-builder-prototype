@@ -46,3 +46,11 @@ next-env.d.ts
 .eslintcache
 .turbo
 .swc
+
+# Wrangler and Neon
+/.dev.vars*
+/.env.*
+!/.env.example
+/.neon
+/.wrangler/
+/public/app.js

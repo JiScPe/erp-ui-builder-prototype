@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP Prototype</title>
+<style>
+  * { box-sizing: border-box }
+  body { max-width: 54rem; margin: 3rem auto; padding: 0 1.25rem; font: 16px/1.5 system-ui; color: #172331; background: #f6f8fa }
+  section { background: white; border: 1px solid #dfe5ea; padding: 1.25rem; border-radius: .75rem; margin-block: 1rem }
+  h1, h2 { line-height: 1.2 }
+  form, label { display: grid; gap: .4rem }
+  form { gap: .8rem }
+  .actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-block: .7rem }
+  input, button { font: inherit; padding: .5rem .7rem }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere }
+  [hidden] { display: none !important }
+</style>
+<main>
+  <h1>ERP Prototype</h1>
+  <p role="status" id="status">Checking Neon configuration…</p>
+  <section id="auth" hidden>
+    <h2>Account</h2>
+    <form id="login">
+      <label>Name (new accounts)<input name="name" autocomplete="name"></label>
+      <label>Email<input required name="email" type="email" autocomplete="email"></label>
+      <label>Password<input required name="password" type="password" autocomplete="current-password"></label>
+      <div class="actions">
+        <button name="action" value="signin">Sign in</button>
+        <button name="action" value="signup">Create account</button>
+      </div>
+    </form>
+  </section>
+  <section id="workspace" hidden>
+    <h2>Service checks</h2>
+    <p id="identity"></p>
+    <div class="actions">
+      <button id="postgres">Read Postgres state</button>
+      <button id="gateway" hidden>Test AI Gateway</button>
+      <button id="signout">Sign out</button>
+    </div>
+    <pre id="result"></pre>
+  </section>
+</main>
+<script type="module" src="/app.js"></script>
+</html>
