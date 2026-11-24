@@ -7,7 +7,7 @@ export async function authenticatedUser(request, env) {
   const token = request.headers.get('Authorization')?.match(/^Bearer (\S+)$/i)?.[1];
   if (!token) return null;
 
-  const issuer = env.NEON_AUTH_BASE_URL.replace(/\/$/, '');
+  const authOrigin = new URL(env.NEON_AUTH_BASE_URL).origin;
   if (jwksUrl !== env.NEON_AUTH_JWKS_URL) {
     jwks = createRemoteJWKSet(new URL(env.NEON_AUTH_JWKS_URL));
     jwksUrl = env.NEON_AUTH_JWKS_URL;
@@ -15,11 +15,15 @@ export async function authenticatedUser(request, env) {
 
   try {
     const { payload } = await jwtVerify(token, jwks, {
-      issuer,
+      issuer: authOrigin,
+      audience: authOrigin,
       algorithms: ['EdDSA'],
       requiredClaims: ['sub', 'exp', 'iat'],
     });
-    return { id: payload.sub, admin: payload.sub === env.ERP_ADMIN_USER_ID };
+    if (typeof payload.sub !== 'string' || !payload.sub.trim() ||
+        payload.role === 'anonymous' || payload.banned === true) return null;
+    const admin = payload.sub === env.ERP_ADMIN_USER_ID;
+    return { id: payload.sub, role: admin ? 'admin' : 'user', admin };
   } catch (error) {
     if (error.code === 'ERR_JWKS_TIMEOUT' || error instanceof TypeError) throw error;
     return null;

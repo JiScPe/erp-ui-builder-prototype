@@ -6,14 +6,27 @@ const form = element('login');
 const result = element('result');
 let auth;
 
+function showSignIn() {
+  element('workspace').hidden = true;
+  element('gateway').hidden = true;
+  element('identity').textContent = '';
+  result.textContent = '';
+  element('auth').hidden = false;
+  status.textContent = 'Sign in to check the connected services.';
+}
+
 async function api(path, method = 'GET', authenticated = true) {
   const headers = {};
   if (authenticated) {
     const { data, error } = await auth.token();
-    if (!data?.token) throw new Error(error?.message || 'Session token unavailable');
+    if (!data?.token) {
+      showSignIn();
+      throw new Error(error?.message || 'Sign in required');
+    }
     headers.Authorization = 'Bearer ' + data.token;
   }
   const response = await fetch(path, { method, headers });
+  if (response.status === 401) showSignIn();
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Request failed');
   return data;
@@ -23,18 +36,15 @@ async function refresh() {
   const { data, error } = await auth.getSession();
   if (error) throw new Error(error.message);
   if (!data?.user) {
-    element('workspace').hidden = true;
-    element('gateway').hidden = true;
-    result.textContent = '';
-    element('auth').hidden = false;
-    status.textContent = 'Sign in to check the connected services.';
+    showSignIn();
     return;
   }
   const user = await api('/api/session');
-  element('identity').textContent = data.user.email + (user.admin ? ' · Admin' : ' · User');
+  const isAdmin = user.role === 'admin';
+  element('identity').textContent = data.user.email + (isAdmin ? ' · Admin' : ' · User');
   element('auth').hidden = true;
   element('workspace').hidden = false;
-  element('gateway').hidden = !user.admin;
+  element('gateway').hidden = !isAdmin;
   status.textContent = 'Neon Auth session verified by the Worker.';
 }
 
@@ -81,7 +91,7 @@ action(element('gateway'), async () => {
 action(element('signout'), async () => {
   const { error } = await auth.signOut();
   if (error) throw new Error(error.message);
-  await refresh();
+  showSignIn();
 });
 
 try {

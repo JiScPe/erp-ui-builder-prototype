@@ -44,13 +44,13 @@ export default {
       const user = await authenticatedUser(request, env);
       if (!user) return reply({ error: 'Sign in required' }, 401);
       if (request.method === 'GET' && url.pathname === '/api/session') return reply(user);
-      if (request.method === 'POST' && url.pathname === '/api/ai/test') {
-        if (!user.admin) return reply({ error: 'Admin access required' }, 403);
+      const aiTest = request.method === 'POST' && url.pathname === '/api/ai/test';
+      if ((aiTest || url.pathname === '/api/layout') && user.role !== 'admin') {
+        return reply({ error: 'Admin access required' }, 403);
+      }
+      if (aiTest) {
         const result = await testGateway(env);
         return reply(result.data, result.status);
-      }
-      if (url.pathname === '/api/layout' && !user.admin) {
-        return reply({ error: 'Admin access required' }, 403);
       }
       if (!env.DATABASE_URL) return reply({ error: 'Neon Postgres is not configured' }, 503);
       const sql = neon(env.DATABASE_URL);
