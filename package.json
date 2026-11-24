@@ -19,6 +19,7 @@
     "jose": "^6.2.18"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
     "wrangler": "^4.50.0"
   }
 }

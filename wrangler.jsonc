@@ -2,6 +2,7 @@
   "name": "erp-ui-builder-prototype",
   "main": "worker.js",
   "compatibility_date": "2026-11-24",
+  "previews": {},
   "assets": {
     "directory": "./public",
     "run_worker_first": [

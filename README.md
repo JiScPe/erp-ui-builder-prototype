@@ -30,3 +30,23 @@ authenticated users have the User role. Set the same variable in
 
 Use a development Neon branch when testing changes to data. Keep
 `.env.local`, `.dev.vars` files, and credentials outside Git.
+
+## Configure purchase order metadata
+
+Run `npm run db:migrate` on the target Neon branch before deploying the metadata API. If Workers Builds deploys on merge, apply the migration before merging. The migration preserves the current published layout and existing submissions.
+
+Send a Neon Auth bearer token with each metadata request. Send same-origin
+JSON for writes.
+
+| Endpoint | Access | Request or response |
+| --- | --- | --- |
+| `GET /api/metadata` | Signed-in user | Returns published `config` and `revision`. |
+| `GET /api/metadata/draft` | Admin | Returns editable `config` and `draftRevision`. |
+| `PUT /api/metadata/draft` | Admin | Send `config` and the last read `draftRevision`. Returns the saved draft. |
+| `POST /api/metadata/publish` | Admin | Send the saved `draftRevision`. Returns the published configuration and revision. |
+
+Keep a field's `id` stable when editing its label. Reference the field ID
+from the table columns, form, filters, and sort. A publish that removes a field
+or changes its type while a submission has data for that field leaves the
+published configuration and the submission intact. Address the conflict in
+the draft and try again.
