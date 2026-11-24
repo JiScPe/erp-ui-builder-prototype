@@ -1,0 +1,24 @@
+{
+  "name": "erp-ui-builder-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run --outdir .wrangler/build",
+    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/migrate.js",
+    "build:assets": "esbuild src/app.js --bundle --minify --format=esm --outfile=public/app.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@neon/auth": "^0.8.2",
+    "@neon/config": "^1.14.6",
+    "@neon/env": "^2.1.9",
+    "@neondatabase/serverless": "^1.0.2",
+    "esbuild": "^0.28.2",
+    "jose": "^6.2.18"
+  },
+  "devDependencies": {
+    "wrangler": "^4.50.0"
+  }
+}
