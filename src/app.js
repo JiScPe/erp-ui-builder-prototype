@@ -5,6 +5,7 @@ const status = element('status');
 const form = element('login');
 const result = element('result');
 let auth;
+let authUrl;
 
 function showSignIn() {
   element('workspace').hidden = true;
@@ -18,12 +19,14 @@ function showSignIn() {
 async function api(path, method = 'GET', authenticated = true) {
   const headers = {};
   if (authenticated) {
-    const { data, error } = await auth.token();
-    if (!data?.token) {
+    // Exchange the session cookie for a JWT instead of reading a cached session.
+    const response = await fetch(authUrl + '/token', { credentials: 'include', cache: 'no-store' });
+    const { token } = response.ok ? await response.json() : {};
+    if (!token) {
       showSignIn();
-      throw new Error(error?.message || 'Sign in required');
+      throw new Error('Sign in required');
     }
-    headers.Authorization = 'Bearer ' + data.token;
+    headers.Authorization = 'Bearer ' + token;
   }
   const response = await fetch(path, { method, headers });
   if (response.status === 401) showSignIn();
@@ -95,8 +98,9 @@ action(element('signout'), async () => {
 });
 
 try {
-  const { authUrl } = await api('/api/config', 'GET', false);
-  if (!authUrl) throw new Error('Neon Auth configuration is missing. Run neon deploy and restart the app.');
+  const config = await api('/api/config', 'GET', false);
+  if (!config.authUrl) throw new Error('Neon Auth is not configured for this deployment.');
+  authUrl = config.authUrl.replace(/\/$/, '');
   auth = createAuthClient(authUrl);
   await refresh();
 } catch (error) {

@@ -23,6 +23,11 @@ Worker secrets. Set `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` as Worker
 variables. If using AI Gateway, also set `NEON_AI_GATEWAY_BASE_URL`.
 Add the deployed origin to Neon Auth's trusted domains.
 
+Set `NEON_AUTH_COOKIE_SECRET` as a Worker secret to use the same-origin Auth
+proxy for email sign-up, sign-in and sign-out. Generate a separate secret for
+each environment with `openssl rand -base64 32`. The proxy lets browsers use
+an app-domain session cookie even when they block cross-site cookies.
+
 To grant the first administrator access, set `ERP_ADMIN_USER_ID` to the ID
 of the administrator's user on the configured Neon Auth branch. Other
 authenticated users have the User role. Set the same variable in
