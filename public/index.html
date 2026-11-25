@@ -11,8 +11,14 @@
   form, label { display: grid; gap: .4rem }
   form { gap: .8rem }
   .actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-block: .7rem }
-  input, button { font: inherit; padding: .5rem .7rem }
+  input, button, select, textarea { font: inherit; padding: .5rem .7rem }
   pre { white-space: pre-wrap; overflow-wrap: anywhere }
+  #schema-controls, #schema-fields, [data-option-list] { display: grid; gap: .8rem }
+  #schema-controls { margin: 0; padding: 0; border: 0; min-inline-size: 0 }
+  #schema-fields fieldset { display: grid; gap: .65rem; border: 1px solid #dfe5ea; border-radius: .5rem; min-inline-size: 0 }
+  #schema-fields textarea { resize: vertical }
+  [data-option-list]:not(:empty) { margin-block-end: .65rem }
+  .checkbox { display: flex; align-items: center }
   [hidden] { display: none !important }
 </style>
 <main>
@@ -39,6 +45,46 @@
       <button id="signout">Sign out</button>
     </div>
     <pre id="result"></pre>
+  </section>
+  <section id="schema-builder" aria-labelledby="schema-heading" hidden>
+    <h2 id="schema-heading">Purchase order schema</h2>
+    <p id="schema-status" role="status"></p>
+    <button id="schema-reload" type="button" hidden>Reload saved draft</button>
+    <form id="schema-form" hidden>
+      <fieldset id="schema-controls">
+        <div id="schema-fields"></div>
+        <div class="actions">
+          <button id="schema-add" type="button">Add field</button>
+          <button id="schema-save" type="submit">Save draft</button>
+        </div>
+      </fieldset>
+    </form>
+    <template id="schema-field-template">
+      <fieldset>
+        <legend>Field</legend>
+        <label>Field name<input name="label" required maxlength="100"></label>
+        <label>Data type
+          <select name="type">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="select">Select</option>
+          </select>
+        </label>
+        <label class="checkbox"><input name="required" type="checkbox"> Required</label>
+        <div data-options role="group" aria-label="Select options" hidden>
+          <div data-option-list></div>
+          <button type="button" data-add-option>Add option</button>
+        </div>
+        <button type="button" data-discard-field hidden>Discard new field</button>
+      </fieldset>
+    </template>
+    <template id="schema-option-template">
+      <div>
+        <label>Option text<textarea name="option" rows="2" maxlength="100"></textarea></label>
+        <button type="button" data-remove-option>Remove option</button>
+      </div>
+    </template>
   </section>
 </main>
 <script type="module" src="/app.js"></script>

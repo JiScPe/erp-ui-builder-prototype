@@ -1,13 +1,16 @@
 import { createAuthClient } from '@neon/auth';
+import { schemaEditor } from './schema-editor.js';
 
 const element = id => document.getElementById(id);
 const status = element('status');
 const form = element('login');
 const result = element('result');
+const schema = schemaEditor(api);
 let auth;
 let authUrl;
 
 function showSignIn() {
+  schema.setAdmin(false);
   element('workspace').hidden = true;
   element('gateway').hidden = true;
   element('identity').textContent = '';
@@ -16,11 +19,11 @@ function showSignIn() {
   status.textContent = 'Sign in to check the connected services.';
 }
 
-async function api(path, method = 'GET', authenticated = true) {
+async function api(path, method = 'GET', authenticated = true, { body, signal } = {}) {
   const headers = {};
   if (authenticated) {
     // Exchange the session cookie for a JWT instead of reading a cached session.
-    const response = await fetch(authUrl + '/token', { credentials: 'include', cache: 'no-store' });
+    const response = await fetch(authUrl + '/token', { credentials: 'include', cache: 'no-store', signal });
     const { token } = response.ok ? await response.json() : {};
     if (!token) {
       showSignIn();
@@ -28,10 +31,11 @@ async function api(path, method = 'GET', authenticated = true) {
     }
     headers.Authorization = 'Bearer ' + token;
   }
-  const response = await fetch(path, { method, headers });
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const response = await fetch(path, { method, headers, body: JSON.stringify(body), signal });
   if (response.status === 401) showSignIn();
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: response.status });
   return data;
 }
 
@@ -48,6 +52,7 @@ async function refresh() {
   element('auth').hidden = true;
   element('workspace').hidden = false;
   element('gateway').hidden = !isAdmin;
+  schema.setAdmin(isAdmin);
   status.textContent = 'Neon Auth session verified by the Worker.';
 }
 
