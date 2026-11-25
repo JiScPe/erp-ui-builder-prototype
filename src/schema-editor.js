@@ -1,4 +1,5 @@
 import { validConfiguration } from '../metadata.js';
+import { formEditor } from './form-editor.js';
 
 const endpoint = '/api/metadata/draft';
 const emptyConfig = { schema: [], table: { columns: [] }, form: { items: [] }, query: { filters: [], sort: [] } };
@@ -17,6 +18,7 @@ export function schemaEditor(api) {
   const originalOptionValues = new WeakMap();
   let session;
   let draft;
+  const layout = formEditor(() => !draft || controls.disabled);
 
   function appendOption(list, addOption, value) {
     const row = optionTemplate.content.firstElementChild.cloneNode(true);
@@ -28,6 +30,7 @@ export function schemaEditor(api) {
       row.remove();
       addOption.disabled = false;
       addOption.focus();
+      syncSchema();
     });
     list.append(row);
     addOption.disabled = list.children.length >= 25;
@@ -46,7 +49,10 @@ export function schemaEditor(api) {
     type.value = field.type;
     required.checked = field.required;
     field.options.forEach(option => appendOption(optionList, addOption, option));
-    addOption.addEventListener('click', () => appendOption(optionList, addOption, '').focus());
+    addOption.addEventListener('click', () => {
+      appendOption(optionList, addOption, '').focus();
+      syncSchema();
+    });
 
     function showOptions() {
       options.hidden = type.value !== 'select';
@@ -60,6 +66,7 @@ export function schemaEditor(api) {
         row.remove();
         add.disabled = false;
         add.focus();
+        syncSchema();
       });
     }
     fields.append(row);
@@ -75,7 +82,7 @@ export function schemaEditor(api) {
   async function loadDraft() {
     const { signal } = session;
     setPending(true);
-    status.textContent = 'Loading schema draft…';
+    status.textContent = 'Loading draft…';
     try {
       const saved = await api(endpoint, 'GET', true, { signal });
       if (signal.aborted) return;
@@ -83,6 +90,7 @@ export function schemaEditor(api) {
       fields.replaceChildren();
       add.disabled = false;
       draft.config.schema.forEach(field => appendField(field));
+      layout.load(draft.config.schema, draft.config.form.items);
       form.hidden = false;
       reload.hidden = true;
       status.textContent = draft.config.schema.length ? '' : 'Add a field to start the schema draft.';
@@ -97,15 +105,14 @@ export function schemaEditor(api) {
 
   add.addEventListener('click', () => {
     appendField({ id: crypto.randomUUID(), label: '', type: 'text', required: false, options: [] }, true).focus();
+    syncSchema();
   });
   reload.addEventListener('click', loadDraft);
+  fields.addEventListener('input', syncSchema);
 
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (!draft || controls.disabled) return;
-
+  function readSchema() {
     const originalFields = new Map(draft.config.schema.map(field => [field.id, field]));
-    const schema = Array.from(fields.children, row => {
+    return Array.from(fields.children, row => {
       const id = row.dataset.fieldId;
       const { label, type, required } = row.elements;
       const original = originalFields.get(id);
@@ -119,22 +126,32 @@ export function schemaEditor(api) {
           : original?.options ?? [],
       };
     });
-    const config = { ...draft.config, schema };
+  }
+
+  function syncSchema() {
+    if (draft) layout.updateSchema(readSchema());
+  }
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!draft || controls.disabled) return;
+
+    const config = { ...draft.config, schema: readSchema(), form: { items: layout.readItems() } };
     if (!validConfiguration(config)) {
-      status.textContent = 'Check field names, select options, and existing query filters before saving.';
+      status.textContent = 'Check field names, select options, form headings, and existing query filters before saving.';
       return;
     }
 
     const { signal } = session;
     setPending(true);
-    status.textContent = 'Saving schema draft…';
+    status.textContent = 'Saving draft…';
     try {
       const saved = await api(endpoint, 'PUT', true, { body: { config, draftRevision: draft.draftRevision }, signal });
       if (signal.aborted) return;
       draft = saved;
       fields.querySelectorAll('[data-discard-field]').forEach(button => { button.hidden = true; });
       reload.hidden = true;
-      status.textContent = 'Schema draft saved.';
+      status.textContent = 'Draft saved.';
     } catch (error) {
       if (signal.aborted) return;
       if (error.status === 409) {
@@ -155,6 +172,7 @@ export function schemaEditor(api) {
       form.hidden = true;
       reload.hidden = true;
       fields.replaceChildren();
+      layout.clear();
       status.textContent = '';
       section.hidden = !isAdmin;
       session = isAdmin ? new AbortController() : null;
