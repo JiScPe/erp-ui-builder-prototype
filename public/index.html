@@ -19,6 +19,31 @@
   #schema-fields textarea { resize: vertical }
   [data-option-list]:not(:empty) { margin-block-end: .65rem }
   .checkbox { display: flex; align-items: center }
+  #form-builder, #form-preview-section { border-top: 1px solid #dfe5ea; padding-top: 1rem }
+  #form-preview-section { margin-top: 1rem }
+  .form-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1rem }
+  .form-workspace h4, #form-preview h4 { margin-block: 0 .5rem }
+  #form-palette, #form-items { display: grid; gap: .55rem; align-content: start }
+  #form-palette button { white-space: normal; overflow-wrap: anywhere; text-align: start }
+  #form-canvas { min-width: 0; min-height: 8rem; padding: .75rem; border: 1px dashed #8b9aab; border-radius: .5rem }
+  #form-canvas[data-drag-over] { border-color: #285ea8; background: #eef5ff }
+  #form-empty { margin-block: 1rem; text-align: center }
+  #form-items { margin: 0; padding: 0; list-style: none }
+  #form-items > li { min-width: 0; position: relative; padding: .65rem; background: #f6f8fa; border: 1px solid #dfe5ea; border-radius: .4rem }
+  #form-items > li[data-drop-before] { box-shadow: 0 -.2rem #285ea8 }
+  #form-items > li[data-drop-after] { box-shadow: 0 .2rem #285ea8 }
+  .form-item-title { display: flex; align-items: center; gap: .5rem; overflow-wrap: anywhere }
+  [data-form-drag], #form-palette button[draggable="true"]:enabled { cursor: grab }
+  [data-form-drag] { padding: .15rem .35rem; border: 1px solid #dfe5ea; border-radius: .25rem }
+  .form-item-actions { display: flex; align-items: end; flex-wrap: wrap; gap: .4rem; margin-top: .5rem }
+  .form-item-actions button, .form-item-actions select { padding: .3rem .45rem }
+  #form-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem }
+  #form-preview > [data-width="2"] { grid-column: 1 / -1 }
+  #form-preview input, #form-preview select, [data-form-heading] { min-width: 0; width: 100% }
+  #form-preview > * { overflow-wrap: anywhere }
+  @media (max-width: 38rem) {
+    .form-workspace, #form-preview { grid-template-columns: minmax(0, 1fr) }
+  }
   [hidden] { display: none !important }
 </style>
 <main>
@@ -48,17 +73,58 @@
   </section>
   <section id="schema-builder" aria-labelledby="schema-heading" hidden>
     <h2 id="schema-heading">Purchase order schema</h2>
-    <p id="schema-status" role="status"></p>
-    <button id="schema-reload" type="button" hidden>Reload saved draft</button>
     <form id="schema-form" hidden>
       <fieldset id="schema-controls">
         <div id="schema-fields"></div>
         <div class="actions">
           <button id="schema-add" type="button">Add field</button>
+        </div>
+        <div id="form-builder" role="region" aria-labelledby="form-builder-title">
+          <h3 id="form-builder-title">Form Builder</h3>
+          <div class="form-workspace">
+            <div>
+              <h4 id="form-palette-title">Components</h4>
+              <div id="form-palette" role="group" aria-labelledby="form-palette-title"></div>
+            </div>
+            <div id="form-canvas" role="group" aria-labelledby="form-canvas-title">
+              <h4 id="form-canvas-title">Form layout</h4>
+              <p id="form-empty">Drag or add a component to start the form.</p>
+              <ol id="form-items" aria-label="Form order"></ol>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
           <button id="schema-save" type="submit">Save draft</button>
         </div>
       </fieldset>
     </form>
+    <p id="schema-status" role="status"></p>
+    <button id="schema-reload" type="button" hidden>Reload saved draft</button>
+    <div id="form-preview-section" hidden>
+      <h3>Draft preview</h3>
+      <p id="form-preview-empty">The draft form is empty.</p>
+      <div id="form-preview"></div>
+    </div>
+    <template id="form-item-template">
+      <li>
+        <div class="form-item-title">
+          <span data-form-drag draggable="true" title="Drag to reorder" aria-hidden="true">⠿</span>
+          <strong data-form-name></strong>
+        </div>
+        <label data-heading-label hidden>Heading text<input data-form-heading required maxlength="100"></label>
+        <div class="form-item-actions">
+          <label>Width
+            <select data-form-width>
+              <option value="1">Half width</option>
+              <option value="2">Full width</option>
+            </select>
+          </label>
+          <button type="button" data-form-up>Move up</button>
+          <button type="button" data-form-down>Move down</button>
+          <button type="button" data-form-remove>Remove</button>
+        </div>
+      </li>
+    </template>
     <template id="schema-field-template">
       <fieldset>
         <legend>Field</legend>
