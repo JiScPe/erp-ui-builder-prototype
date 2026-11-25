@@ -182,7 +182,7 @@ export function formEditor(isDisabled) {
       index: Array.from(list.children).indexOf(handle.closest('[data-form-item]')),
     };
     event.dataTransfer.effectAllowed = button ? 'copy' : 'move';
-    event.dataTransfer.setData('text/plain', 'Form component');
+    event.dataTransfer.setData('application/x-erp-form-component', '1');
   });
 
   canvas.addEventListener('dragover', event => {
