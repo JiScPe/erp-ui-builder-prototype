@@ -137,7 +137,7 @@ if (orders.size && !failures.length) {
   }
 }
 const signOuts = await Promise.allSettled(sessions.map(async cookie => {
-  const response = await request('/api/auth/sign-out', { method: 'POST', cookie });
+  const response = await request('/api/auth/sign-out', { method: 'POST', body: {}, cookie });
   assert(response.ok, 'Sign-out returned HTTP ' + response.status);
 }));
 failures.push(...signOuts.filter(result => result.status === 'rejected').map(result => result.reason));
