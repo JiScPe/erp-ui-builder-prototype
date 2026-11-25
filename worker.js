@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { handleAuthProxyRequest } from '@neon/auth/server';
 import { authenticatedUser, testGateway } from './neon-services.js';
 
 import { validConfiguration, validLayout, validRecordValues } from './metadata.js';
@@ -11,17 +12,43 @@ const reply = (data, status = 200) => Response.json(data, {
 const validRevision = revision =>
   Number.isInteger(revision) && revision >= 0 && revision <= 2_147_483_647;
 
+const authProxyPath = '/api/auth';
+const authProxyPrefix = authProxyPath + '/';
+const authProxyRoutes = new Map([
+  ['GET', new Set(['get-session', 'token'])],
+  ['POST', new Set(['sign-in/email', 'sign-up/email', 'sign-out'])],
+]);
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const authProxyEnabled = Boolean(env.NEON_AUTH_BASE_URL && env.NEON_AUTH_COOKIE_SECRET?.length >= 32);
     if (request.method === 'GET' && url.pathname === '/api/config') {
-      return reply({ authUrl: env.NEON_AUTH_BASE_URL || null });
+      return reply({
+        authUrl: authProxyEnabled ? url.origin + authProxyPath : env.NEON_AUTH_BASE_URL || null,
+      });
     }
     if (!env.NEON_AUTH_BASE_URL || !env.NEON_AUTH_JWKS_URL) {
       return reply({ error: 'Neon Auth is not configured' }, 503);
     }
 
     try {
+      if (authProxyEnabled && url.pathname.startsWith(authProxyPrefix)) {
+        const path = url.pathname.slice(authProxyPrefix.length);
+        if (!authProxyRoutes.get(request.method)?.has(path)) return reply({ error: 'Route not found' }, 404);
+        if (request.method === 'POST' && request.headers.get('Origin') !== url.origin) {
+          return reply({ error: 'Expected a same-origin auth request' }, 403);
+        }
+        const response = await handleAuthProxyRequest({
+          request,
+          path,
+          baseUrl: env.NEON_AUTH_BASE_URL.replace(/\/$/, ''),
+          cookieSecret: env.NEON_AUTH_COOKIE_SECRET,
+          sameSite: 'lax',
+        });
+        response.headers.set('Cache-Control', 'no-store');
+        return response;
+      }
       const user = await authenticatedUser(request, env);
       if (!user) return reply({ error: 'Sign in required' }, 401);
       if (request.method === 'GET' && url.pathname === '/api/session') return reply(user);

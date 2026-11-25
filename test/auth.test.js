@@ -13,8 +13,13 @@ before(async () => {
   const keys = await generateKeyPair('EdDSA');
   privateKey = keys.privateKey;
   const jwk = { ...await exportJWK(keys.publicKey), kid: keyId, alg: 'EdDSA' };
-  jwksServer = createServer((_request, response) => {
+  jwksServer = createServer((request, response) => {
     response.setHeader('Content-Type', 'application/json');
+    if (request.method === 'POST' && request.url === '/neondb/auth/sign-out') {
+      response.setHeader('Set-Cookie', '__Secure-neon-auth.session_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None; Partitioned');
+      response.end(JSON.stringify({ success: true, origin: request.headers.origin }));
+      return;
+    }
     response.end(JSON.stringify({ keys: [jwk] }));
   });
   await new Promise((resolve, reject) => {
@@ -54,6 +59,29 @@ test('signed-out requests cannot read ERP data or change the layout', async () =
   assert.equal((await request('/api/session')).status, 401);
   assert.equal((await request('/api/state')).status, 401);
   assert.equal((await request('/api/layout', undefined, 'POST')).status, 401);
+});
+
+test('the configured auth proxy uses the app origin and forwards session-cookie changes', async () => {
+  const appOrigin = 'https://erp.example';
+  const proxyEnv = {
+    ...env,
+    NEON_AUTH_BASE_URL: 'http://127.0.0.1:' + jwksServer.address().port + '/neondb/auth',
+    NEON_AUTH_COOKIE_SECRET: 'fixture-cookie-secret-with-at-least-32-characters',
+  };
+  const config = await worker.fetch(new Request(appOrigin + '/api/config'), proxyEnv);
+  assert.deepEqual(await config.json(), { authUrl: appOrigin + '/api/auth' });
+
+  const signOut = origin => worker.fetch(new Request(appOrigin + '/api/auth/sign-out', {
+    method: 'POST',
+    headers: { Origin: origin },
+  }), proxyEnv);
+  assert.equal((await signOut('https://elsewhere.example')).status, 403);
+  const result = await signOut(appOrigin);
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { success: true, origin: appOrigin });
+  assert.equal(result.headers.get('Cache-Control'), 'no-store');
+  assert.match(result.headers.get('Set-Cookie'), /SameSite=Lax/i);
+  assert.doesNotMatch(result.headers.get('Set-Cookie'), /Partitioned/i);
 });
 
 test('a valid Neon token creates a user session without trusting the provider role', async () => {
