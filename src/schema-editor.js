@@ -1,8 +1,16 @@
 import { validConfiguration } from '../metadata.js';
 import { formEditor } from './form-editor.js';
+import { tableEditor } from './table-editor.js';
 
 const endpoint = '/api/metadata/draft';
 const emptyConfig = { schema: [], table: { columns: [] }, form: { items: [] }, query: { filters: [], sort: [] } };
+
+function comparableConfig(config) {
+  return JSON.stringify(config, (_, value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    return Object.fromEntries(Object.keys(value).sort().map(name => [name, value[name]]));
+  });
+}
 
 export function schemaEditor(api) {
   const element = id => document.getElementById(id);
@@ -19,6 +27,13 @@ export function schemaEditor(api) {
   let session;
   let draft;
   const layout = formEditor(() => !draft || controls.disabled);
+  const table = tableEditor(element('form-builder'));
+  const publish = document.createElement('button');
+  publish.id = 'schema-publish';
+  publish.type = 'button';
+  publish.textContent = 'Publish draft';
+  publish.disabled = true;
+  element('schema-save').after(publish);
 
   function appendOption(list, addOption, value) {
     const row = optionTemplate.content.firstElementChild.cloneNode(true);
@@ -91,9 +106,11 @@ export function schemaEditor(api) {
       add.disabled = false;
       draft.config.schema.forEach(field => appendField(field));
       layout.load(draft.config.schema, draft.config.form.items);
+      table.load(draft.config);
       form.hidden = false;
       reload.hidden = true;
-      status.textContent = draft.config.schema.length ? '' : 'Add a field to start the schema draft.';
+      publish.disabled = draft.draftRevision === 0;
+      status.textContent = draft.config.schema.length ? '' : 'Add a field to start the draft.';
     } catch (error) {
       if (signal.aborted) return;
       reload.hidden = false;
@@ -129,16 +146,23 @@ export function schemaEditor(api) {
   }
 
   function syncSchema() {
-    if (draft) layout.updateSchema(readSchema());
+    if (!draft) return;
+    const schema = readSchema();
+    layout.updateSchema(schema);
+    table.updateSchema(schema);
+  }
+
+  function readConfig() {
+    return { ...draft.config, schema: readSchema(), form: { items: layout.readItems() }, ...table.read() };
   }
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (!draft || controls.disabled) return;
 
-    const config = { ...draft.config, schema: readSchema(), form: { items: layout.readItems() } };
+    const config = readConfig();
     if (!validConfiguration(config)) {
-      status.textContent = 'Check field names, select options, form headings, and existing query filters before saving.';
+      status.textContent = 'Check field names, select options, form headings, and table filters before saving.';
       return;
     }
 
@@ -151,6 +175,7 @@ export function schemaEditor(api) {
       draft = saved;
       fields.querySelectorAll('[data-discard-field]').forEach(button => { button.hidden = true; });
       reload.hidden = true;
+      publish.disabled = false;
       status.textContent = 'Draft saved.';
     } catch (error) {
       if (signal.aborted) return;
@@ -165,6 +190,37 @@ export function schemaEditor(api) {
     }
   });
 
+  publish.addEventListener('click', async () => {
+    if (!draft || publish.disabled || controls.disabled) return;
+    if (comparableConfig(readConfig()) !== comparableConfig(draft.config)) {
+      status.textContent = 'Save your draft changes before publishing.';
+      return;
+    }
+
+    const { signal } = session;
+    setPending(true);
+    status.textContent = 'Publishing draft…';
+    try {
+      const published = await api('/api/metadata/publish', 'POST', true, {
+        body: { draftRevision: draft.draftRevision }, signal,
+      });
+      if (signal.aborted) return;
+      reload.hidden = true;
+      status.textContent = 'Draft published.';
+      document.dispatchEvent(new CustomEvent('erp:published', { detail: published }));
+    } catch (error) {
+      if (signal.aborted) return;
+      const affected = Array.isArray(error.fields) ? error.fields : [];
+      const names = new Map(draft.config.schema.map(field => [field.id, field.label]));
+      status.textContent = affected.length
+        ? error.message + ' Fields: ' + affected.map(id => names.get(id) ?? id).join(', ')
+        : error.message;
+      if (error.status === 409 && !affected.length) reload.hidden = false;
+    } finally {
+      if (!signal.aborted) setPending(false);
+    }
+  });
+
   return {
     setAdmin(isAdmin) {
       session?.abort();
@@ -173,6 +229,8 @@ export function schemaEditor(api) {
       reload.hidden = true;
       fields.replaceChildren();
       layout.clear();
+      table.load(emptyConfig);
+      publish.disabled = true;
       status.textContent = '';
       section.hidden = !isAdmin;
       session = isAdmin ? new AbortController() : null;

@@ -1,5 +1,5 @@
 const fieldId = /^[a-z0-9-]{1,48}$/i;
-const filterOperators = {
+export const filterOperators = {
   text: new Set(['eq', 'ne', 'contains']),
   number: new Set(['eq', 'ne', 'lt', 'lte', 'gt', 'gte']),
   date: new Set(['eq', 'ne', 'lt', 'lte', 'gt', 'gte']),
@@ -50,7 +50,7 @@ function validFormItem(item, fields) {
     validId(item.id) && validLabel(item.label);
 }
 
-function validFilter(filter, fields) {
+export function validFilter(filter, fields) {
   if (!hasKeys(filter, 'fieldId', 'operator', 'value')) return false;
   const field = fields.get(filter.fieldId);
   if (!field || !filterOperators[field.type].has(filter.operator)) return false;
