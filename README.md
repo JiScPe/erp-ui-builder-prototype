@@ -55,3 +55,35 @@ from the table columns, form, filters, and sort. A publish that removes a field
 or changes its type while a submission has data for that field leaves the
 published configuration and the submission intact. Address the conflict in
 the draft and try again.
+
+## Work with orders
+
+Sign in as Admin to open Builder and configure the schema, form, columns,
+filters, and sort. Save the draft, then publish it. Dashboard and order editing
+use the published configuration. An authenticated User can create an order,
+open it from Dashboard, edit it, or delete it.
+
+`GET /api/orders?page=1` returns the published configuration, its `revision`,
+and a page of records. `GET /api/orders/:id` returns a single record with its
+`version`. For writes, send a same-origin JSON body with the authenticated
+request.
+
+| Method and path | Body |
+| --- | --- |
+| `POST /api/orders` | Published `revision` and `values` keyed by field ID |
+| `PUT /api/orders/:id` | Published `revision`, the record's `version`, and `values` |
+| `DELETE /api/orders/:id` | The record's `version` |
+
+## Smoke-test a Cloudflare Preview
+
+Use an isolated Neon database, run the migration, and configure the Worker
+Preview's runtime secrets. Set up separate Admin and User test accounts on the
+Preview's Neon Auth branch. Assign the Admin using `ERP_ADMIN_USER_ID`.
+
+Set `ERP_PREVIEW_ORIGIN` to the Preview URL. Provide
+`ERP_SMOKE_ADMIN_EMAIL`, `ERP_SMOKE_ADMIN_PASSWORD`, `ERP_SMOKE_USER_EMAIL`,
+and `ERP_SMOKE_USER_PASSWORD` through your secret environment. Run
+`node scripts/smoke-preview.js`. The script saves and publishes a test
+configuration, checks the User's filtered and sorted list, and deletes the
+orders it creates. It refuses to run when the database has unrelated
+metadata or existing orders.

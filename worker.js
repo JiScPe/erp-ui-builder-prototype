@@ -2,8 +2,9 @@ import { neon } from '@neondatabase/serverless';
 import { handleAuthProxyRequest } from '@neon/auth/server';
 import { authenticatedUser, testGateway } from './neon-services.js';
 
-import { validConfiguration, validLayout, validRecordValues } from './metadata.js';
+import { layoutFor, validConfiguration, validLayout, validRecordValues } from './metadata.js';
 import { publishDraft, readDraft, readPublished, saveDraft } from './metadata-store.js';
+import { deleteOrder, insertOrder, listOrders, readOrder, updateOrder } from './order-store.js';
 
 const reply = (data, status = 200) => Response.json(data, {
   status, headers: { 'Cache-Control': 'no-store' },
@@ -11,6 +12,23 @@ const reply = (data, status = 200) => Response.json(data, {
 
 const validRevision = revision =>
   Number.isInteger(revision) && revision >= 0 && revision <= 2_147_483_647;
+
+const validOrderId = id => /^[1-9][0-9]{0,18}$/.test(id) && BigInt(id) <= 9_223_372_036_854_775_807n;
+const validOrderVersion = version => typeof version === 'string' && /^[0-9]{1,10}$/.test(version);
+
+function normalizeOrderValues(layout, values) {
+  const normalized = { ...values };
+  for (const field of layout) {
+    if (field.type !== 'number') continue;
+    const text = normalized[field.id].trim();
+    if (/^0[xbo]/i.test(text)) normalized[field.id] = String(BigInt(text));
+    else {
+      const exponent = Number(/[eE]([+-]?\d+)$/.exec(text)?.[1] ?? 0);
+      normalized[field.id] = Number(text) === 0 && Math.abs(exponent) > 10_000 ? '0' : text;
+    }
+  }
+  return normalized;
+}
 
 const authProxyPath = '/api/auth';
 const authProxyPrefix = authProxyPath + '/';
@@ -65,6 +83,21 @@ export default {
       }
       if (!env.DATABASE_URL) return reply({ error: 'Neon Postgres is not configured' }, 503);
       const sql = neon(env.DATABASE_URL);
+      const orderRoute = /^\/api\/orders(?:\/([^/]+))?$/.exec(url.pathname);
+      const orderId = orderRoute?.[1];
+      if (orderId && !validOrderId(orderId)) return reply({ error: 'Invalid order ID' }, 400);
+      if (orderRoute && request.method === 'GET') {
+        if (orderId) {
+          const detail = await readOrder(sql, orderId);
+          return detail ? reply(detail) : reply({ error: 'Order not found' }, 404);
+        }
+        const page = Number(url.searchParams.get('page') ?? 1);
+        if (page < 1 || !Number.isSafeInteger(page)) {
+          return reply({ error: 'Invalid order page' }, 400);
+        }
+        const orders = await listOrders(sql, page);
+        return orders ? reply(orders) : reply({ error: 'Published configuration changed. Reload and try again.' }, 409);
+      }
       if (request.method === 'GET' && url.pathname === '/api/metadata') {
         return reply(await readPublished(sql));
       }
@@ -84,7 +117,10 @@ export default {
       const savingDraft = request.method === 'PUT' && draft;
       const publishingDraft = request.method === 'POST' && publish;
       const submittingRecord = request.method === 'POST' && url.pathname === '/api/records';
-      if (!savingDraft && !publishingDraft && !submittingRecord) {
+      const creatingOrder = orderRoute && !orderId && request.method === 'POST';
+      const updatingOrder = orderId && request.method === 'PUT';
+      const deletingOrder = orderId && request.method === 'DELETE';
+      if (!savingDraft && !publishingDraft && !submittingRecord && !creatingOrder && !updatingOrder && !deletingOrder) {
         return reply({ error: 'Route not found' }, 404);
       }
       if (request.headers.get('Origin') !== url.origin ||
@@ -95,6 +131,33 @@ export default {
       if (raw.length > 150_000) return reply({ error: 'Request is too large' }, 413);
       let body;
       try { body = JSON.parse(raw); } catch { return reply({ error: 'Invalid JSON' }, 400); }
+
+      if (creatingOrder || updatingOrder || deletingOrder) {
+        if (!creatingOrder && !validOrderVersion(body?.version)) {
+          return reply({ error: 'Invalid order version' }, 400);
+        }
+        if (deletingOrder) {
+          const deleted = await deleteOrder(sql, orderId, body.version);
+          return deleted ? reply(deleted) : reply({ error: 'Order changed or was deleted. Reload and try again.' }, 409);
+        }
+        const revision = body?.revision;
+        if (!validRevision(revision)) return reply({ error: 'Invalid published revision' }, 400);
+        const published = await readPublished(sql);
+        if (published.revision !== revision) {
+          return reply({ error: 'Published configuration changed. Reload and try again.' }, 409);
+        }
+        if (!published.config) return reply({ error: 'Publish an order form before saving orders.' }, 422);
+        if (!validConfiguration(published.config)) throw new Error('Invalid published order configuration');
+        const layout = layoutFor(published.config);
+        if (!validRecordValues(layout, body.values)) return reply({ error: 'Invalid form values' }, 422);
+        const values = normalizeOrderValues(layout, body.values);
+        const record = creatingOrder
+          ? await insertOrder(sql, revision, layout, values)
+          : await updateOrder(sql, { id: orderId, revision, version: body.version, values });
+        return record
+          ? reply({ record }, creatingOrder ? 201 : 200)
+          : reply({ error: 'Order or published configuration changed. Reload and try again.' }, 409);
+      }
 
       if (savingDraft || publishingDraft) {
         const draftRevision = body?.draftRevision;

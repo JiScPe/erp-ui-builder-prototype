@@ -13,12 +13,64 @@
   .actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-block: .7rem }
   input, button, select, textarea { font: inherit; padding: .5rem .7rem }
   pre { white-space: pre-wrap; overflow-wrap: anywhere }
+  .workspace-bar, .order-header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; flex-wrap: wrap }
+  .workspace-bar nav, .order-header .actions { margin: 0 }
+  .workspace-bar p, .order-header h2 { margin: 0 }
+  #workspace details { margin-top: .85rem }
+  #workspace summary { cursor: pointer; color: #4b596b }
+  .orders-table-scroll { overflow: auto }
+  #orders-table { width: 100%; border-collapse: collapse; text-align: left }
+  #orders-table th, #orders-table td { padding: .65rem .75rem; border-bottom: 1px solid #dfe5ea; vertical-align: top }
+  #orders-table th { background: #f5f8fc; color: #3d4c5e }
+  #orders-table td { min-width: 6rem; max-width: 20rem; overflow-wrap: anywhere; white-space: pre-wrap }
+  #orders-table button, .workspace-bar button { white-space: nowrap }
+  .primary-action { background: #285ea8; border: 1px solid #285ea8; color: white; border-radius: .35rem }
+  .primary-action:disabled { opacity: .55 }
+  #orders-table button, #orders-pagination button, #order-back { border: 1px solid #b8c6d6; border-radius: .35rem; background: white }
+  #orders-dashboard button:focus-visible, #order-panel button:focus-visible, #workspace button:focus-visible { outline: 2px solid #285ea8; outline-offset: 2px }
+  #orders-page { align-self: center; color: #4b596b }
+  #order-controls { border: 0; margin: 0; padding: 0; min-width: 0 }
+  #order-fields, .order-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0 }
+  #order-fields > [data-width="2"], .order-values > [data-width="2"] { grid-column: 1 / -1 }
+  #order-fields input, #order-fields select { min-width: 0; width: 100% }
+  #order-fields h3, .order-values h3 { margin: .25rem 0 0 }
+  .order-value, #order-fields label { min-width: 0; overflow-wrap: anywhere }
+  .order-value strong, .order-value span { display: block; white-space: pre-wrap }
+  .order-value span, #order-fields small { color: #4b596b }
+  #order-delete-confirm { max-width: min(28rem, calc(100% - 2rem)); border: 1px solid #b8c6d6; border-radius: .6rem; padding: 1.25rem }
+  #order-delete-confirm::backdrop { background: #17233166 }
   #schema-controls, #schema-fields, [data-option-list] { display: grid; gap: .8rem }
   #schema-controls { margin: 0; padding: 0; border: 0; min-inline-size: 0 }
   #schema-fields fieldset { display: grid; gap: .65rem; border: 1px solid #dfe5ea; border-radius: .5rem; min-inline-size: 0 }
   #schema-fields textarea { resize: vertical }
   [data-option-list]:not(:empty) { margin-block-end: .65rem }
   .checkbox { display: flex; align-items: center }
+  #form-builder, #form-preview-section { border-top: 1px solid #dfe5ea; padding-top: 1rem }
+  #form-preview-section { margin-top: 1rem }
+  .form-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1rem }
+  .form-workspace h4, #form-preview h4 { margin-block: 0 .5rem }
+  #form-palette, #form-items { display: grid; gap: .55rem; align-content: start }
+  #form-palette button { white-space: normal; overflow-wrap: anywhere; text-align: start }
+  #form-canvas { min-width: 0; min-height: 8rem; padding: .75rem; border: 1px dashed #8b9aab; border-radius: .5rem }
+  #form-canvas[data-drag-over] { border-color: #285ea8; background: #eef5ff }
+  #form-empty { margin-block: 1rem; text-align: center }
+  #form-items { margin: 0; padding: 0; list-style: none }
+  #form-items > li { min-width: 0; position: relative; padding: .65rem; background: #f6f8fa; border: 1px solid #dfe5ea; border-radius: .4rem }
+  #form-items > li[data-drop-before] { box-shadow: 0 -.2rem #285ea8 }
+  #form-items > li[data-drop-after] { box-shadow: 0 .2rem #285ea8 }
+  .form-item-title { display: flex; align-items: center; gap: .5rem; overflow-wrap: anywhere }
+  [data-form-drag], #form-palette button[draggable="true"]:enabled { cursor: grab }
+  [data-form-drag] { padding: .15rem .35rem; border: 1px solid #dfe5ea; border-radius: .25rem }
+  .form-item-actions { display: flex; align-items: end; flex-wrap: wrap; gap: .4rem; margin-top: .5rem }
+  .form-item-actions button, .form-item-actions select { padding: .3rem .45rem }
+  #form-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem }
+  #form-preview > [data-width="2"] { grid-column: 1 / -1 }
+  #form-preview input, #form-preview select, [data-form-heading] { min-width: 0; width: 100% }
+  #form-preview > * { overflow-wrap: anywhere }
+  @media (max-width: 38rem) {
+    .form-workspace, #form-preview { grid-template-columns: minmax(0, 1fr) }
+    #order-fields, .order-values { grid-template-columns: minmax(0, 1fr) }
+  }
   [hidden] { display: none !important }
 </style>
 <main>
@@ -36,29 +88,132 @@
       </div>
     </form>
   </section>
-  <section id="workspace" hidden>
-    <h2>Service checks</h2>
-    <p id="identity"></p>
-    <div class="actions">
-      <button id="postgres">Read Postgres state</button>
-      <button id="gateway" hidden>Test AI Gateway</button>
-      <button id="signout">Sign out</button>
+  <section id="workspace" aria-label="Workspace" hidden>
+    <div class="workspace-bar">
+      <p id="identity"></p>
+      <nav class="actions" aria-label="Workspace">
+        <button id="dashboard-nav" type="button" aria-current="page">Dashboard</button>
+        <button id="builder-nav" type="button" hidden>Builder</button>
+        <button id="signout" type="button">Sign out</button>
+      </nav>
     </div>
-    <pre id="result"></pre>
+    <details>
+      <summary>Service checks</summary>
+      <div class="actions">
+        <button id="postgres" type="button">Read Postgres state</button>
+        <button id="gateway" type="button" hidden>Test AI Gateway</button>
+      </div>
+      <pre id="result"></pre>
+    </details>
+  </section>
+  <section id="orders-dashboard" aria-labelledby="orders-title" hidden>
+    <div class="order-header">
+      <h2 id="orders-title" tabindex="-1">Purchase orders</h2>
+      <div class="actions">
+        <button id="orders-refresh" type="button">Refresh</button>
+        <button id="orders-new" class="primary-action" type="button" disabled>New</button>
+      </div>
+    </div>
+    <p id="orders-status" role="status"></p>
+    <div id="orders-table-wrap" class="orders-table-scroll" role="region" aria-label="Purchase orders table" tabindex="0" hidden>
+      <table id="orders-table" aria-label="Purchase orders"><thead></thead><tbody></tbody></table>
+    </div>
+    <div id="orders-pagination" class="actions" aria-label="Order pages" hidden>
+      <button id="orders-previous" type="button">Previous</button>
+      <span id="orders-page"></span>
+      <button id="orders-next" type="button">Next</button>
+    </div>
+  </section>
+  <section id="order-panel" aria-labelledby="order-title" hidden>
+    <div class="order-header">
+      <h2 id="order-title" tabindex="-1"></h2>
+      <button id="order-back" type="button">Back to orders</button>
+    </div>
+    <p id="order-status" role="status"></p>
+    <div id="order-detail" hidden>
+      <p id="order-created"></p>
+      <div id="order-values" class="order-values"></div>
+      <details id="order-other" hidden>
+        <summary>Other saved values</summary>
+        <div id="order-other-values" class="order-values"></div>
+      </details>
+      <div class="actions">
+        <button id="order-edit" class="primary-action" type="button">Edit</button>
+        <button id="order-delete" type="button">Delete</button>
+      </div>
+    </div>
+    <form id="order-editor" hidden>
+      <fieldset id="order-controls">
+        <div id="order-fields"></div>
+        <div class="actions">
+          <button id="order-save" class="primary-action" type="submit">Save</button>
+          <button id="order-cancel" type="button">Cancel</button>
+        </div>
+      </fieldset>
+    </form>
+    <dialog id="order-delete-confirm" aria-labelledby="order-delete-title">
+      <h3 id="order-delete-title">Delete this order?</h3>
+      <p>This permanently removes the order from the list.</p>
+      <div class="actions">
+        <button id="order-delete-cancel" type="button" autofocus>Cancel</button>
+        <button id="order-delete-apply" type="button">Delete order</button>
+      </div>
+    </dialog>
   </section>
   <section id="schema-builder" aria-labelledby="schema-heading" hidden>
     <h2 id="schema-heading">Purchase order schema</h2>
-    <p id="schema-status" role="status"></p>
-    <button id="schema-reload" type="button" hidden>Reload saved draft</button>
     <form id="schema-form" hidden>
       <fieldset id="schema-controls">
         <div id="schema-fields"></div>
         <div class="actions">
           <button id="schema-add" type="button">Add field</button>
+        </div>
+        <div id="form-builder" role="region" aria-labelledby="form-builder-title">
+          <h3 id="form-builder-title">Form Builder</h3>
+          <div class="form-workspace">
+            <div>
+              <h4 id="form-palette-title">Components</h4>
+              <div id="form-palette" role="group" aria-labelledby="form-palette-title"></div>
+            </div>
+            <div id="form-canvas" role="group" aria-labelledby="form-canvas-title">
+              <h4 id="form-canvas-title">Form layout</h4>
+              <p id="form-empty">Drag or add a component to start the form.</p>
+              <ol id="form-items" aria-label="Form order"></ol>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
           <button id="schema-save" type="submit">Save draft</button>
         </div>
       </fieldset>
     </form>
+    <p id="schema-status" role="status"></p>
+    <button id="schema-reload" type="button" hidden>Reload saved draft</button>
+    <div id="form-preview-section" hidden>
+      <h3>Draft preview</h3>
+      <p id="form-preview-empty">The draft form is empty.</p>
+      <div id="form-preview"></div>
+    </div>
+    <template id="form-item-template">
+      <li>
+        <div class="form-item-title">
+          <span data-form-drag draggable="true" title="Drag to reorder" aria-hidden="true">⠿</span>
+          <strong data-form-name></strong>
+        </div>
+        <label data-heading-label hidden>Heading text<input data-form-heading required maxlength="100"></label>
+        <div class="form-item-actions">
+          <label>Width
+            <select data-form-width>
+              <option value="1">Half width</option>
+              <option value="2">Full width</option>
+            </select>
+          </label>
+          <button type="button" data-form-up>Move up</button>
+          <button type="button" data-form-down>Move down</button>
+          <button type="button" data-form-remove>Remove</button>
+        </div>
+      </li>
+    </template>
     <template id="schema-field-template">
       <fieldset>
         <legend>Field</legend>
